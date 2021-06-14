@@ -1,0 +1,67 @@
+import pandas as pd
+from datetime import date
+import datetime
+import statsmodels.api as sm
+from bs4 import BeautifulSoup
+import requests 
+import matplotlib.pyplot as plt
+
+#determine today and 12 months ago date
+end_date = date.today().strftime("%m/%d/%Y")
+st_date = (date.today()-datetime.timedelta(365)).strftime("%m/%d/%Y")
+
+#define url and header to make requests
+#user agent was found inspecting the webpage
+url = "https://www.investing.com/instruments/HistoricalDataAjax"
+header = { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.75 Safari/537.36",
+  "X-Requested-With": "XMLHttpRequest"}
+
+#payload determines which instrument is requested 
+#header, smlID, curr_id were found inspecting the webpage
+
+#Gold Futures
+payload = {'header': 'Gold Futures Historical Data', 'st_date': st_date, 'end_date': end_date, 'sort_col': 'date', 'action': 'historical_data', 'smlID': '300004', 'sort_ord': 'DESC', 'interval_sec': 'Daily', 'curr_id': '8830'}
+request = requests.post(url, data=payload, headers=header)
+soup = BeautifulSoup(request.content, 'html.parser')
+table = soup.find(id="curr_table")
+gold_futures = pd.read_html(str(table))[0]
+gold_futures.set_index("Date",inplace=True)
+
+#Barrick Gold
+payload = {'header': 'GOLD Historical Data', 'st_date': st_date, 'end_date': end_date, 'sort_col': 'date', 'action': 'historical_data', 'smlID': '1163151', 'sort_ord': 'DESC', 'interval_sec': 'Daily', 'curr_id': '13928'}
+request = requests.post(url, data=payload, headers=header)
+soup = BeautifulSoup(request.content, 'html.parser')
+table = soup.find(id="curr_table")
+barrick = pd.read_html(str(table))[0]
+barrick.set_index("Date",inplace=True)
+
+#Copper
+payload = {'header': 'Cobre Futuros Dados Históricos', 'st_date': st_date, 'end_date': end_date, 'sort_col': 'date', 'action': 'historical_data', 'smlID': '300012', 'sort_ord': 'DESC', 'interval_sec': 'Daily', 'curr_id': '8831'}
+request = requests.post(url, data=payload, headers=header)
+soup = BeautifulSoup(request.content, 'html.parser')
+table = soup.find(id="curr_table")
+copper = pd.read_html(str(table))[0]
+copper.set_index("Date",inplace=True)
+
+
+#join the dataframes creating suffices
+df = (barrick.join(copper,lsuffix='_barrick',rsuffix='_copper')).join(gold_futures.add_suffix('_gold'))
+
+#get only price columns
+prices = df[["Price_barrick","Price_copper","Price_gold"]]
+
+#get daily returns
+price_deltas = prices.pct_change()
+
+#define exogeneous variables and add a constant in the dataframe (first row was removed because ....)
+exo = sm.add_constant(price_deltas.iloc[1:,1:])
+
+#regress the endogenous variable in the exogenous ones
+model = sm.OLS(price_deltas.iloc[1:,0], exo)
+results = model.fit()
+
+#results
+print(results.summary())
+
+#plotting the residuals
+plt.plot(results.resid.values)
