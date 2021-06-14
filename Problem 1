@@ -1,0 +1,59 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+#import dataframe and unstack it
+#pivot transforms "name" into columns
+funds = pd.read_csv('/home/mtroppmair/Downloads/funds.csv')
+funds = funds.pivot(index="date",columns="name")
+#rename columns to get rid of 'share' and considere the first word only
+funds.columns = funds.columns.get_level_values(1)
+funds.columns = [i.split()[0] for i in funds.columns]
+
+#calculate daily returns and cummulative returns
+ret_funds = funds.pct_change()
+cumm_funds = (ret_funds+1).cumprod()
+
+#calculte inverse of available days in annual terms for each fund 
+period = [1/len(cumm_funds.loc[:,column].dropna())*252 for column in cumm_funds.columns]
+
+#calculate annual return, standard deviation and sharpe ratio
+annual_ret = cumm_funds.iloc[-1,:]**(period)-1
+
+std_funds = ret_funds.std()*(252)**(1/2)
+
+#risk free = 0
+sharpe = (annual_ret)/std_funds
+
+
+#for rolling volatility and sharpe, we have to define the window of interest (in days)
+window = 22*6
+n_rows = len(funds.index)
+
+#create arrays for rolling volatility and return
+std_rolling = np.zeros([n_rows-window,11])
+ret_rolling = np.zeros([n_rows-window,11])
+
+#return (annualized) and volatility (annualized) are calculated the same way as before but using only returns from within the window
+for t in range(n_rows-window):
+    std_window = (ret_funds.iloc[t:t+window].std().values)*(252)**(1/2)
+    std_rolling[t] = std_window
+    
+    ret_window = (funds.iloc[t+window,:]/funds.iloc[t,:])**(252/window)-1
+    ret_rolling[t] = ret_window
+
+#turning arrays to dataframes
+ret_rolling = pd.DataFrame(ret_rolling); ret_rolling.columns = funds.columns
+std_rolling = pd.DataFrame(std_rolling); std_rolling.columns = funds.columns
+sharpe_rolling = pd.DataFrame(ret_rolling/std_rolling); sharpe_rolling.columns = funds.columns
+
+#plotting cummulative return
+plt.figure(); pd.DataFrame(cumm_funds).plot(); plt.legend(loc='best',bbox_to_anchor=(1.05, 1))
+
+#plotting rolling annualized return, standard deviation and sharpe
+plt.figure(); pd.DataFrame(ret_rolling).plot(); plt.legend(loc='best',bbox_to_anchor=(1.05, 1))
+plt.figure(); pd.DataFrame(std_rolling).plot(); plt.legend(loc='best',bbox_to_anchor=(1.05, 1))
+plt.figure(); pd.DataFrame(sharpe_rolling).plot(); plt.legend(loc='best',bbox_to_anchor=(1.05, 1))
+
+
+
