@@ -14,7 +14,7 @@ funds.columns = [i.split()[0] for i in funds.columns]
 ret_funds = funds.pct_change()
 cumm_funds = (ret_funds+1).cumprod()
 
-#calculte inverse of available days in annual terms for each fund 
+#calculte the inverse of available days (annualized) for each fund 
 period = [1/len(cumm_funds.loc[:,column].dropna())*252 for column in cumm_funds.columns]
 
 #calculate annual return, standard deviation and sharpe ratio
