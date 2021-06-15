@@ -51,7 +51,9 @@ df = (barrick.join(copper,lsuffix='_barrick',rsuffix='_copper')).join(gold_futur
 prices = df[["Price_barrick","Price_copper","Price_gold"]]
 
 #get daily returns
+prices = prices.iloc[::-1]
 price_deltas = prices.pct_change()
+
 
 #define exogeneous variables and add a constant in the dataframe (first row was removed because ....)
 exo = sm.add_constant(price_deltas.iloc[1:,1:])
@@ -61,7 +63,7 @@ model = sm.OLS(price_deltas.iloc[1:,0], exo)
 results = model.fit()
 
 #results
-print(results.summary())
+print(results.summary().as_latex())
 
 #plotting the residuals
 plt.plot(results.resid.values)
